@@ -1,0 +1,51 @@
+# 🔐 SEGURANÇA - Nunca commitar
+.env
+.env.local
+.env.*.local
+
+# 📦 Ambiente Virtual
+venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# 🗄️ Banco de Dados (muito grande!)
+#chroma_db/
+
+# 📄 Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 🎨 Streamlit Cache
+.streamlit/
+.streamlit/logger_config.ini
+
+# 💾 Dados Locais (opcional - se não quer versionar PDFs)
+data/*.pdf
+
+# 🔎 IDEs / Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# 📊 Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# 🐛 Debugging
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 📝 Logs
+*.log
+
+DOCUMENTO_TECNICO.docx
