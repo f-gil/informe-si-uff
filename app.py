@@ -1,3 +1,9 @@
+import warnings
+# Suprimir warnings desnecessários
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*transformers.*")
+warnings.filterwarnings("ignore", message=".*torchvision.*")
+
 import streamlit as st
 from chatbot import ChatbotUFF
 import time

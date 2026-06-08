@@ -1,9 +1,26 @@
 import os
+import logging
+import warnings
 from pathlib import Path
+
+# Suprimir warnings desnecessários das dependências
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=".*transformers.*")
+warnings.filterwarnings("ignore", message=".*torchvision.*")
+
 from sentence_transformers import SentenceTransformer
 import chromadb
 import google.generativeai as genai
 from dotenv import load_dotenv
+
+# Configurar logging para debug (apenas nossos logs importam)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Suprimir logs verbosos das dependências
+logging.getLogger("chromadb").setLevel(logging.WARNING)
+logging.getLogger("transformers").setLevel(logging.WARNING)
+logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 
 # Carregar variáveis de ambiente
 load_dotenv()
@@ -142,7 +159,8 @@ INFORMAÇÃO IMPORTANTE:
                 return False, ""
 
         except Exception as e:
-            print(f"Erro ao buscar no site: {e}")
+            error_str = str(e)
+            logger.error(f"🐛 Erro ao buscar no site: {error_str}")
             return False, ""
 
     def answer(self, query, conversation_history=None):
@@ -235,18 +253,17 @@ Pergunta: {query}"""
 
                 try:
                     model = genai.GenerativeModel("gemini-2.5-flash")
-                    response = model.generate_content(
-                        prompt,
-                        generation_config={
-                            "temperature": 0.7,  # Tom amigável e natural
-                            "top_p": 0.9,
-                            "top_k": 40
-                        }
-                    )
+                    response = model.generate_content(prompt)
                     return response.text
                 except Exception as gemini_error:
+                    # Log do erro real para debug
+                    error_str = str(gemini_error)
+                    error_type = type(gemini_error).__name__
+                    logger.error(f"🐛 Erro Gemini [{error_type}]: {error_str}")
+
                     # Se deu erro 429 (quota excedida), usar ChromaDB diretamente
-                    if "429" in str(gemini_error) or "quota" in str(gemini_error).lower():
+                    if "429" in error_str or "quota" in error_str.lower() or "resource_exhausted" in error_str.lower():
+                        logger.warning("⏱️ Quota excedida, usando fallback ChromaDB")
                         # FALLBACK COM QUOTA: Usar apenas ChromaDB
                         resposta_formatada = f"""📚 Informação encontrada na base de conhecimento:
 
@@ -257,6 +274,8 @@ Pergunta: {query}"""
 Se tiver dúvidas adicionais, fique à vontade para perguntar! 😊"""
                         return resposta_formatada
                     else:
+                        # Se é outro erro, re-lançar para não mascarar
+                        logger.error(f"❌ Erro não-quota, re-lançando: {error_str}")
                         raise
 
             # FALLBACK 2: Tentar buscar no site da UFF
@@ -292,9 +311,12 @@ Recomendo que você:
             return resposta_final
 
         except ValueError as e:
+            logger.error(f"❌ ValueError: {str(e)}")
             return f"❌ Erro: {str(e)}"
         except Exception as e:
-            return f"❌ Erro ao processar a pergunta: {str(e)}"
+            error_str = str(e)
+            logger.error(f"❌ Erro inesperado [{type(e).__name__}]: {error_str}")
+            return f"❌ Erro ao processar a pergunta: {error_str}"
 
 
 # Exemplo de uso
