@@ -183,11 +183,23 @@ INFORMAÇÃO IMPORTANTE:
             # Se encontrou no documento local, usar
             if context.strip():
                 if historico_contexto.strip():
-                    system_prompt = """Você é um assistente virtual do curso de Sistemas de Informação da UFF.
-Responda em português de forma clara, objetiva e amigável.
+                    system_prompt = """Você é um assistente amigável e prestativo do curso de Sistemas de Informação da UFF! 🎓
+
+CARACTERÍSTICAS DO SEU TOM:
+- Seja entusiasta sobre o curso e amigável com os alunos
+- Use tom conversacional e acessível
+- Simpatize com as dúvidas dos alunos
+- Estruture respostas com clareza e organização
+- Use emojis ocasionalmente para deixar mais amigável
+- Se não souber, seja honesto e sugira alternativas
+
+EXEMPLOS DO TOM ESPERADO:
+- ❌ Ruim: "Não encontrei informação"
+- ✅ Bom: "Deixa eu procurar isso para você! 😊"
+
+REGRA IMPORTANTE:
 Use APENAS as informações do contexto abaixo para responder.
 Considere o histórico de conversa anterior para contextualizar sua resposta.
-Se a resposta não estiver no contexto, diga: "Não encontrei essa informação no documento do curso."
 
 Histórico da conversa anterior:
 {historico}
@@ -198,10 +210,22 @@ Contexto do documento:
 Nova pergunta: {query}"""
                     prompt = system_prompt.format(historico=historico_contexto, context=context, query=query)
                 else:
-                    system_prompt = """Você é um assistente virtual do curso de Sistemas de Informação da UFF.
-Responda em português de forma clara, objetiva e amigável.
+                    system_prompt = """Você é um assistente amigável e prestativo do curso de Sistemas de Informação da UFF! 🎓
+
+CARACTERÍSTICAS DO SEU TOM:
+- Seja entusiasta sobre o curso e amigável com os alunos
+- Use tom conversacional e acessível
+- Simpatize com as dúvidas dos alunos
+- Estruture respostas com clareza e organização
+- Use emojis ocasionalmente para deixar mais amigável
+- Se não souber, seja honesto e sugira alternativas
+
+EXEMPLOS DO TOM ESPERADO:
+- ❌ Ruim: "Não encontrei informação"
+- ✅ Bom: "Deixa eu procurar isso para você! 😊"
+
+REGRA IMPORTANTE:
 Use APENAS as informações do contexto abaixo para responder.
-Se a resposta não estiver no contexto, diga: "Não encontrei essa informação no documento do curso."
 
 Contexto:
 {context}
@@ -209,9 +233,31 @@ Contexto:
 Pergunta: {query}"""
                     prompt = system_prompt.format(context=context, query=query)
 
-                model = genai.GenerativeModel("gemini-2.5-flash")
-                response = model.generate_content(prompt)
-                return response.text
+                try:
+                    model = genai.GenerativeModel("gemini-2.5-flash")
+                    response = model.generate_content(
+                        prompt,
+                        generation_config=genai.types.GenerationConfig(
+                            temperature=0.7,  # Tom amigável e natural
+                            top_p=0.9,
+                            top_k=40
+                        )
+                    )
+                    return response.text
+                except Exception as gemini_error:
+                    # Se deu erro 429 (quota excedida), usar ChromaDB diretamente
+                    if "429" in str(gemini_error) or "quota" in str(gemini_error).lower():
+                        # FALLBACK COM QUOTA: Usar apenas ChromaDB
+                        resposta_formatada = f"""📚 Informação encontrada na base de conhecimento:
+
+{context}
+
+⏱️ Estamos com um fluxo intenso de requisições no momento, mas conseguimos buscar essa informação para você!
+
+Se tiver dúvidas adicionais, fique à vontade para perguntar! 😊"""
+                        return resposta_formatada
+                    else:
+                        raise
 
             # FALLBACK 2: Tentar buscar no site da UFF
             encontrou_no_site, resposta_site = self.search_on_uff_site(query)
