@@ -1,5 +1,6 @@
 import streamlit as st
 from chatbot import ChatbotUFF
+import time
 
 # Configuracao da pagina
 st.set_page_config(
@@ -34,11 +35,11 @@ st.markdown("""
     }
 
     .chat-message.user .message-content {
-        background-color: #e3f2fd;
-        color: #0d47a1;
+        background-color: #0B6951;
+        color: #f0f0f0;
         padding: 0.875rem 1.25rem;
         border-radius: 18px 18px 4px 18px;
-        border-left: 4px solid #2196f3;
+        border-left: 4px solid #0B6951;
         max-width: 85%;
         word-wrap: break-word;
         font-size: 15px;
@@ -51,11 +52,11 @@ st.markdown("""
     }
 
     .chat-message.assistant .message-content {
-        background-color: #f3e5f5;
-        color: #4a148c;
+        background-color: #4a4a4a;
+        color: #e0e0e0;
         padding: 0.875rem 1.25rem;
         border-radius: 18px 18px 18px 4px;
-        border-left: 4px solid #9c27b0;
+        border-left: 4px solid #0B6951;
         max-width: 85%;
         word-wrap: break-word;
         font-size: 15px;
@@ -66,7 +67,7 @@ st.markdown("""
     h1 {
         font-size: 2rem;
         font-weight: 700;
-        color: #2563eb;
+        color: #0B6951;
         margin-bottom: 0.25rem !important;
     }
 
@@ -79,6 +80,10 @@ st.markdown("""
 
     .stChatInputContainer {
         padding: 1rem 0 !important;
+    }
+
+    .stChatInputContainer input {
+        border: 2px solid #0B6951 !important;
     }
 
     [data-testid="stSidebar"] {
@@ -95,7 +100,7 @@ st.markdown("""
         }
 
         h1 {
-            color: #60a5fa !important;
+            color: #0B6951 !important;
         }
 
         .subtitle {
@@ -103,15 +108,15 @@ st.markdown("""
         }
 
         .chat-message.user .message-content {
-            background-color: #1e3a8a;
-            color: #dbeafe;
-            border-left-color: #3b82f6;
+            background-color: #0B6951;
+            color: #f0f0f0;
+            border-left-color: #0B6951;
         }
 
         .chat-message.assistant .message-content {
-            background-color: #3f1f5f;
-            color: #e9d5ff;
-            border-left-color: #d946ef;
+            background-color: #4a4a4a;
+            color: #e0e0e0;
+            border-left-color: #0B6951;
         }
     }
     </style>
@@ -149,9 +154,8 @@ with st.sidebar:
         2. O assistente vai buscar a resposta no documento
         3. Se nao encontrar, ele sugerira consultar a coordenacao
 
-        ### ⚠️ Nota:
-        - Certifique-se de que executou `python ingest.py` primeiro
-        - Configure sua chave GEMINI_API_KEY no arquivo `.env`
+        Por favor, faça a avaliação da aplicação no link à seguir: https://pudim.com.br
+
         """
     )
 
@@ -203,11 +207,20 @@ if user_input:
     # Adicionar resposta ao historico
     st.session_state.messages.append({"role": "assistant", "content": response})
 
-    # Exibir resposta
-    st.markdown(
-        f'<div class="chat-message assistant"><div class="message-content">{response}</div></div>',
-        unsafe_allow_html=True
-    )
+    # Exibir resposta com efeito de digitação (letra por letra)
+    response_container = st.empty()
+    displayed_text = ""
+
+    # Velocidade de digitação: 0.01 segundos por letra para efeito rápido
+    delay = 0.01
+
+    for char in response:
+        displayed_text += char
+        response_container.markdown(
+            f'<div class="chat-message assistant"><div class="message-content">{displayed_text}</div></div>',
+            unsafe_allow_html=True
+        )
+        time.sleep(delay)
 
     # Rerun para atualizar a interface
     st.rerun()
