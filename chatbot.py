@@ -237,11 +237,11 @@ Pergunta: {query}"""
                     model = genai.GenerativeModel("gemini-2.5-flash")
                     response = model.generate_content(
                         prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            temperature=0.7,  # Tom amigável e natural
-                            top_p=0.9,
-                            top_k=40
-                        )
+                        generation_config={
+                            "temperature": 0.7,  # Tom amigável e natural
+                            "top_p": 0.9,
+                            "top_k": 40
+                        }
                     )
                     return response.text
                 except Exception as gemini_error:

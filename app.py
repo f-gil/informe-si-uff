@@ -160,7 +160,7 @@ with st.sidebar:
         2. O assistente vai buscar a resposta no documento
         3. Se nao encontrar, ele sugerira consultar a coordenacao
 
-        Por favor, faça a avaliação da aplicação no link à seguir: https://pudim.com.br
+        Por favor, faça a avaliação da aplicação no link à seguir: LINK DO FORMULÁRIO AQUI
 
         """
     )
