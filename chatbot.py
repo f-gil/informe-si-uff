@@ -12,6 +12,7 @@ from sentence_transformers import SentenceTransformer
 import chromadb
 import google.generativeai as genai
 from dotenv import load_dotenv
+from cache import buscar_no_cache, adicionar_ao_cache
 
 # Configurar logging para debug (apenas nossos logs importam)
 logging.basicConfig(level=logging.INFO)
@@ -168,6 +169,7 @@ INFORMAÇÃO IMPORTANTE:
         Responde a uma pergunta com múltiplos fallbacks e memória de contexto.
 
         Estratégia:
+        0. Verifica cache de respostas anteriores
         1. Tenta encontrar no ChromaDB (documento local)
         2. Se não encontrar, tenta buscar no site da UFF
         3. Se ainda não encontrar, sugere contato com a coordenação
@@ -181,6 +183,11 @@ INFORMAÇÃO IMPORTANTE:
             resposta do assistente como string
         """
         try:
+            # CACHE 0: Verificar se já respondemos essa pergunta antes
+            resposta_cached = buscar_no_cache(query)
+            if resposta_cached:
+                logger.info(f"🎯 Resposta retornada do CACHE (economizou quota!)")
+                return resposta_cached
             # FALLBACK 1: Tentar com ChromaDB (5 chunks)
             context = self.retrieve_context(query, top_k=5)
 
@@ -254,7 +261,10 @@ Pergunta: {query}"""
                 try:
                     model = genai.GenerativeModel("gemini-2.5-flash")
                     response = model.generate_content(prompt)
-                    return response.text
+                    resposta = response.text
+                    # Cachear resposta para próximas vezes
+                    adicionar_ao_cache(query, resposta)
+                    return resposta
                 except Exception as gemini_error:
                     # Log do erro real para debug
                     error_str = str(gemini_error)
@@ -285,6 +295,8 @@ Se tiver dúvidas adicionais, fique à vontade para perguntar! 😊"""
                 resposta_final = f"""{resposta_site}
 
 📚 Para mais detalhes, acesse: {CURSO_URL}"""
+                # Cachear resposta do site também
+                adicionar_ao_cache(query, resposta_final)
                 return resposta_final
 
             # FALLBACK 3: Nenhum lugar encontrou - sugerir contato com link relevante
