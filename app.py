@@ -2,6 +2,12 @@ import streamlit as st
 from chatbot import ChatbotUFF
 import time
 
+# Cache do modelo para economizar memória
+@st.cache_resource
+def load_chatbot():
+    """Carrega ChatbotUFF uma vez só e reutiliza em toda execução"""
+    return ChatbotUFF()
+
 # Configuracao da pagina
 st.set_page_config(
     page_title="Assistente UFF SI",
@@ -129,7 +135,7 @@ st.markdown("<p class='subtitle'>Tire suas duvidas sobre o curso de Sistemas de 
 # Inicializar session state
 if "chatbot" not in st.session_state:
     try:
-        st.session_state.chatbot = ChatbotUFF()
+        st.session_state.chatbot = load_chatbot()  # Usa cache para economizar memória
         st.session_state.initialized = True
     except Exception as e:
         st.session_state.initialized = False
