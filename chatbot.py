@@ -13,6 +13,7 @@ import chromadb
 import google.generativeai as genai
 from dotenv import load_dotenv
 from cache import buscar_no_cache, adicionar_ao_cache
+from keys_manager import get_keys_manager
 
 # Configurar logging para debug (apenas nossos logs importam)
 logging.basicConfig(level=logging.INFO)
@@ -26,12 +27,8 @@ logging.getLogger("sentence_transformers").setLevel(logging.WARNING)
 # Carregar variáveis de ambiente
 load_dotenv()
 
-# Configurar chave da API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("❌ GEMINI_API_KEY não encontrada. Configure no arquivo .env")
-
-genai.configure(api_key=GEMINI_API_KEY)
+# Inicializar gerenciador de chaves
+keys_manager = get_keys_manager()
 
 # URLs do site do curso
 CURSO_URL = "https://www.uff.br/curso/sistemas-de-informacao/"
@@ -55,6 +52,130 @@ LINKS_ESPECIFICOS = {
     "horario": "https://www.uff.br/curso/sistemas-de-informacao/",
 }
 
+def formatar_contexto_fallback(context, max_linhas=10):
+    """
+    Formata o contexto do ChromaDB para apresentação legível no fallback.
+
+    Remove ruído, limpa formatação, e organiza de forma amigável.
+
+    Args:
+        context: texto bruto dos chunks do ChromaDB
+        max_linhas: máximo de linhas para retornar
+
+    Returns:
+        texto formatado e legível
+    """
+    if not context or not context.strip():
+        return "Desculpe, não encontrei informação específica sobre isso."
+
+    # Dividir em linhas
+    linhas = context.split('\n')
+
+    # Limpar linhas
+    linhas_limpas = []
+    for linha in linhas:
+        linha = linha.strip()
+
+        # Pular linhas muito curtas (ruído)
+        if len(linha) < 10:
+            continue
+
+        # Pular linhas que parecem URLs incompletas ou truncadas
+        if linha.endswith(('...', '–', '—', 'http', '.com')):
+            continue
+
+        # Pular linhas que começam com caracteres de erro (como "ntífico)")
+        if linha[0] in 'ntçãõó' and not linha[0].isupper():
+            continue
+
+        linhas_limpas.append(linha)
+
+    # Remover duplicatas mantendo ordem
+    linhas_unicas = []
+    vistas = set()
+    for linha in linhas_limpas:
+        if linha not in vistas:
+            linhas_unicas.append(linha)
+            vistas.add(linha)
+
+    # Limitar número de linhas
+    linhas_unicas = linhas_unicas[:max_linhas]
+
+    # Se ficou vazio, retornar mensagem genérica
+    if not linhas_unicas:
+        return "Encontrei informação na base, mas com formatação problemática. Tente fazer outra pergunta ou entre em contato."
+
+    # Montar resultado formatado
+    resultado = "**Informação encontrada:**\n\n"
+    resultado += "\n".join(linhas_unicas)
+
+    return resultado
+
+
+def chamar_gemini_com_retry(prompt, max_tentativas=None):
+    """
+    Chama Gemini com suporte a múltiplas chaves e retry automático.
+
+    Estratégia:
+    1. Tenta com a chave atual (round-robin)
+    2. Se 429 (quota), rotaciona para próxima chave
+    3. Repete até sucesso ou fim das chaves
+
+    Args:
+        prompt: prompt para enviar ao Gemini
+        max_tentativas: máximo de chaves a tentar (default: todas)
+
+    Returns:
+        texto da resposta ou raises Exception se todas falharem
+
+    Raises:
+        Exception: se todas as chaves derem erro (quota ou outra razão)
+    """
+    total_chaves = keys_manager.obter_total_chaves()
+    max_tentativas = max_tentativas or total_chaves
+
+    erros = []
+
+    for tentativa in range(max_tentativas):
+        chave, numero_chave = keys_manager.obter_proxima_chave()
+
+        try:
+            logger.debug(f"🔑 Tentativa {tentativa + 1}/{max_tentativas} com chave #{numero_chave}")
+
+            # Configurar chave globalmente e criar modelo
+            genai.configure(api_key=chave)
+            model = genai.GenerativeModel("gemini-2.5-flash")
+            response = model.generate_content(prompt)
+            return response.text
+
+        except Exception as erro:
+            erro_str = str(erro)
+            erro_tipo = type(erro).__name__
+
+            logger.warning(f"⚠️ Chave #{numero_chave} falhou: [{erro_tipo}]")
+
+            # Se é erro de quota, tenta próxima chave
+            if "429" in erro_str or "quota" in erro_str.lower() or "resource_exhausted" in erro_str.lower():
+                logger.warning(f"⏱️ Chave #{numero_chave} sem quota, rotacionando...")
+                erros.append((numero_chave, "Quota excedida"))
+                continue
+
+            # Se é outro erro, também tenta próxima (mas loga diferente)
+            logger.error(f"❌ Chave #{numero_chave} erro: {erro_str}")
+            erros.append((numero_chave, erro_tipo))
+            continue
+
+    # Se chegou aqui, todas as chaves falharam
+    logger.error(f"❌ Todas as {max_tentativas} chaves falharam!")
+    for num, razao in erros:
+        logger.error(f"   - Chave #{num}: {razao}")
+
+    raise Exception(
+        f"Todas as {max_tentativas} chaves Gemini falharam ou estão sem quota. "
+        "Tente novamente mais tarde."
+    )
+
+
 def obter_link_relevante(query):
     """
     Obtém o link mais relevante baseado na pergunta.
@@ -76,6 +197,11 @@ class ChatbotUFF:
     def __init__(self):
         """Inicializa o chatbot carregando o modelo e ChromaDB."""
         print("🚀 Inicializando chatbot...")
+
+        # Mostrar informações das chaves
+        total_chaves = keys_manager.obter_total_chaves()
+        print(f"🔑 {total_chaves} chave(s) Gemini configurada(s)")
+        logger.info(f"Quota diária: ~{total_chaves * 20} requisições (~{int(total_chaves * 13)} perguntas)")
 
         # Carregar modelo de embeddings
         self.model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
@@ -148,10 +274,9 @@ INFORMAÇÃO IMPORTANTE:
 - Mantenha a resposta breve e útil
 - Comece direto com a resposta, sem preâmbulos"""
 
-            model = genai.GenerativeModel("gemini-2.5-flash")
-            response = model.generate_content(search_prompt)
-
-            resposta = response.text.strip()
+            # Usar múltiplas chaves com retry automático
+            resposta = chamar_gemini_com_retry(search_prompt)
+            resposta = resposta.strip()
 
             # Verificar se o Gemini encontrou informação
             if "não encontrei" not in resposta.lower():
@@ -259,33 +384,32 @@ Pergunta: {query}"""
                     prompt = system_prompt.format(context=context, query=query)
 
                 try:
-                    model = genai.GenerativeModel("gemini-2.5-flash")
-                    response = model.generate_content(prompt)
-                    resposta = response.text
+                    # Usar múltiplas chaves com retry automático
+                    resposta = chamar_gemini_com_retry(prompt)
                     # Cachear resposta para próximas vezes
                     adicionar_ao_cache(query, resposta)
                     return resposta
                 except Exception as gemini_error:
                     # Log do erro real para debug
                     error_str = str(gemini_error)
-                    error_type = type(gemini_error).__name__
-                    logger.error(f"🐛 Erro Gemini [{error_type}]: {error_str}")
+                    logger.error(f"🐛 Erro Gemini: {error_str}")
 
-                    # Se deu erro 429 (quota excedida), usar ChromaDB diretamente
-                    if "429" in error_str or "quota" in error_str.lower() or "resource_exhausted" in error_str.lower():
-                        logger.warning("⏱️ Quota excedida, usando fallback ChromaDB")
-                        # FALLBACK COM QUOTA: Usar apenas ChromaDB
-                        resposta_formatada = f"""📚 Informação encontrada na base de conhecimento:
+                    # Se TODAS as chaves falharam com quota, usar ChromaDB diretamente
+                    if "quota" in error_str.lower() or "resource_exhausted" in error_str.lower() or "Todas as" in error_str:
+                        logger.warning("⏱️ Todas as chaves sem quota, usando fallback ChromaDB formatado")
+                        # FALLBACK COM QUOTA: Usar ChromaDB formatado de forma legível
+                        contexto_limpo = formatar_contexto_fallback(context)
+                        resposta_formatada = f"""{contexto_limpo}
 
-{context}
+⏱️ Nota: Estamos com um fluxo intenso de requisições, mas conseguimos buscar essa informação para você!
 
-⏱️ Estamos com um fluxo intenso de requisições no momento, mas conseguimos buscar essa informação para você!
-
-Se tiver dúvidas adicionais, fique à vontade para perguntar! 😊"""
+Precisa de mais detalhes? Entre em contato:
+📧 Email: coord.si@ic.uff.br
+📞 Telefone: (21) 2629-5647"""
                         return resposta_formatada
                     else:
-                        # Se é outro erro, re-lançar para não mascarar
-                        logger.error(f"❌ Erro não-quota, re-lançando: {error_str}")
+                        # Se é outro erro crítico, re-lançar
+                        logger.error(f"❌ Erro crítico: {error_str}")
                         raise
 
             # FALLBACK 2: Tentar buscar no site da UFF
