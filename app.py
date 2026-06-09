@@ -7,6 +7,7 @@ warnings.filterwarnings("ignore", message=".*torchvision.*")
 import streamlit as st
 from chatbot import ChatbotUFF
 import time
+from cache import limpar_cache, estatisticas_cache
 
 # Cache do modelo para economizar memória
 @st.cache_resource
@@ -158,6 +159,24 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+    #st.markdown("---")
+
+    # # Cache estatísticas
+    # st.subheader("📦 Cache de Respostas")
+    # stats = estatisticas_cache()
+    # st.metric("Respostas em cache", stats["total_respostas"])
+    # st.metric("Tamanho", f"{stats['tamanho_bytes'] / 1024:.1f} KB")
+
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     if st.button("🔄 Recarregar", use_container_width=True):
+    #         st.rerun()
+    # with col2:
+    #     if st.button("🗑️ Limpar cache", use_container_width=True):
+    #         limpar_cache()
+    #         st.success("Cache limpo!")
+    #         st.rerun()
+
     st.markdown("---")
     st.markdown(
         """
@@ -166,7 +185,7 @@ with st.sidebar:
         2. O assistente vai buscar a resposta no documento
         3. Se nao encontrar, ele sugerira consultar a coordenacao
 
-        Por favor, faça a avaliação da aplicação no link à seguir: LINK DO FORMULÁRIO AQUI
+        Por favor, faça a avaliação da aplicação no link à seguir: https://forms.gle/piDdQF6LNTopNZuK6
 
         """
     )
