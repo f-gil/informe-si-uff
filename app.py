@@ -136,7 +136,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Titulo e subtitulo
-st.markdown("<h1>🎓 Informe_SI</h1>", unsafe_allow_html=True)
+st.markdown("<h1>🎓 InformeSI</h1>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>Tire suas duvidas sobre o curso de Sistemas de Informacao da UFF</p>", unsafe_allow_html=True)
 
 # Inicializar session state
@@ -153,7 +153,7 @@ if "messages" not in st.session_state:
 
 # Barra lateral
 with st.sidebar:
-    st.header("⚙️ Configuracoes")
+    st.header("⚙️ Configurações")
 
     if st.button("🗑️ Limpar conversa", use_container_width=True):
         st.session_state.messages = []
