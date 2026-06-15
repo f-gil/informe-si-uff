@@ -14,6 +14,11 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from cache import buscar_no_cache, adicionar_ao_cache
 from keys_manager import get_keys_manager
+from rag_config import (
+    RAG_TOP_K_SIMPLE, RAG_TOP_K_MULTI, RAG_TOP_K_FALLBACK,
+    RAG_KEYWORDS_MULTI_ITEM, RAG_MIN_RESPONSE_LENGTH,
+    GEMINI_MAX_TOKENS, GEMINI_TEMPERATURE
+)
 
 # Configurar logging para debug (apenas nossos logs importam)
 logging.basicConfig(level=logging.INFO)
@@ -313,12 +318,26 @@ INFORMAÇÃO IMPORTANTE:
             if resposta_cached:
                 logger.info(f"🎯 Resposta retornada do CACHE (economizou quota!)")
                 return resposta_cached
-            # FALLBACK 1: Tentar com ChromaDB (5 chunks)
-            context = self.retrieve_context(query, top_k=5)
+
+            # FALLBACK 1: Detecção inteligente de top_k
+            # Aumentar para tópicos com múltiplos itens (atividades, disciplinas, bolsas, etc)
+            top_k_inicial = RAG_TOP_K_MULTI if any(kw in query.lower() for kw in RAG_KEYWORDS_MULTI_ITEM) else RAG_TOP_K_SIMPLE
+            context = self.retrieve_context(query, top_k=top_k_inicial)
 
             # Se não encontrou, tentar com mais chunks
             if not context.strip():
-                context = self.retrieve_context(query, top_k=10)
+                context = self.retrieve_context(query, top_k=RAG_TOP_K_FALLBACK)
+
+            # FALLBACK 2: Detecção de respostas potencialmente incompletas por tamanho
+            # Se resposta é muito curta, pode estar truncada/incompleta
+            # Refazer busca com top_k maior para capturar mais contexto
+            context_word_count = len(context.split())
+            if context.strip() and context_word_count < RAG_MIN_RESPONSE_LENGTH and top_k_inicial == RAG_TOP_K_SIMPLE:
+                logger.info(f"⚠️  Resposta curta detectada ({context_word_count} palavras < {RAG_MIN_RESPONSE_LENGTH}). Refazendo busca com top_k={RAG_TOP_K_MULTI}...")
+                context_expanded = self.retrieve_context(query, top_k=RAG_TOP_K_MULTI)
+                if context_expanded.strip() and len(context_expanded.split()) > context_word_count:
+                    context = context_expanded
+                    logger.info(f"✅ Resposta expandida: {len(context.split())} palavras")
 
             # Construir histórico de conversa para contexto
             historico_contexto = ""
@@ -336,11 +355,17 @@ INFORMAÇÃO IMPORTANTE:
                     system_prompt = """Você é um assistente do curso de Sistemas de Informação da UFF.
 
 CARACTERÍSTICAS DO SEU TOM:
-- Responda de forma objetiva e direta
-- Use linguagem casual e informal, como se fosse conversa entre estudantes
-- Vá direto ao ponto sem 
-- Use tom conversacional e acessível
-- Se não souber, seja honesto e sugira alternativas
+- Seja amigável e conversacional, como falando com um colega
+- Seja direto e objetivo: vá direto ao ponto sem floreios
+- Use linguagem natural e informal, sem ser genérico
+- Sempre respeitoso e inclusivo com TODOS os alunos, independente de idade ou origem
+- Use termos apropriados: "veteranos" para alunos mais experientes
+- Se não souber, seja honesto: "Não tenho essa informação aqui, mas você pode checar com..."
+
+O QUE NÃO FAZER:
+❌ NÃO comece respostas com "E aí?", "E aí, tudo bem?", "Ó" ou interjeições similares
+❌ NÃO use frases vazias de preenchimento no início
+✅ Comece DIRETO com a informação solicitada
 
 REGRA IMPORTANTE:
 Use APENAS as informações do contexto abaixo para responder.
@@ -358,11 +383,17 @@ Nova pergunta: {query}"""
                     system_prompt = """Você é um assistente do curso de Sistemas de Informação da UFF.
 
 CARACTERÍSTICAS DO SEU TOM:
-- Responda de forma objetiva e direta
-- Use linguagem casual e informal, como se fosse conversa entre estudantes
-- Vá direto ao ponto sem floreios
-- Use tom conversacional e acessível
-- Se não souber, seja honesto e sugira alternativas
+- Seja amigável e conversacional, como falando com um colega
+- Seja direto e objetivo: vá direto ao ponto sem floreios
+- Use linguagem natural e informal, sem ser genérico
+- Sempre respeitoso e inclusivo com TODOS os alunos, independente de idade ou origem
+- Use termos apropriados: "veteranos" para alunos mais experientes
+- Se não souber, seja honesto: "Não tenho essa informação aqui, mas você pode checar com..."
+
+O QUE NÃO FAZER:
+❌ NÃO comece respostas com "E aí?", "E aí, tudo bem?", "Ó" ou interjeições similares
+❌ NÃO use frases vazias de preenchimento no início
+✅ Comece DIRETO com a informação solicitada
 
 REGRA IMPORTANTE:
 Use APENAS as informações do contexto abaixo para responder.
