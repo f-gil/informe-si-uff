@@ -371,6 +371,10 @@ REGRA IMPORTANTE:
 Use APENAS as informações do contexto abaixo para responder.
 Considere o histórico de conversa anterior para contextualizar sua resposta.
 
+INSTRUÇÕES ESPECIAIS:
+Se a pergunta for sobre "Atividades Complementares", sempre mencione ao final:
+"Para mais informações completas, acesse: https://www.ic.uff.br/atividades-complementares-2/"
+
 Histórico da conversa anterior:
 {historico}
 
@@ -397,6 +401,10 @@ O QUE NÃO FAZER:
 
 REGRA IMPORTANTE:
 Use APENAS as informações do contexto abaixo para responder.
+
+INSTRUÇÕES ESPECIAIS:
+Se a pergunta for sobre "Atividades Complementares", sempre mencione ao final:
+"Para mais informações completas, acesse: https://www.ic.uff.br/atividades-complementares-2/"
 
 Contexto:
 {context}
