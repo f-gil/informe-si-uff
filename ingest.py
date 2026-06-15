@@ -5,14 +5,14 @@ import fitz  # PyMuPDF
 from sentence_transformers import SentenceTransformer
 import chromadb
 
-def chunk_text(text, chunk_size=500, overlap=50):
+def chunk_text(text, chunk_size=800, overlap=100):
     """
     Divide o texto em chunks com overlap.
 
     Args:
         text: texto a ser dividido
-        chunk_size: tamanho de cada chunk em caracteres
-        overlap: sobreposição entre chunks
+        chunk_size: tamanho de cada chunk em caracteres (aumentado de 500 para 800)
+        overlap: sobreposição entre chunks (aumentado de 50 para 100)
 
     Returns:
         lista de chunks
@@ -103,8 +103,8 @@ def ingest_pdfs():
             print(f"⚠️  Nenhum texto extraído de {pdf_file.name}")
             continue
 
-        # Dividir em chunks
-        chunks = chunk_text(text, chunk_size=500, overlap=50)
+        # Dividir em chunks (aumentado para melhor performance com dados estruturados)
+        chunks = chunk_text(text, chunk_size=800, overlap=100)
         print(f"   ✓ {len(chunks)} chunks criados")
 
         # Gerar embeddings e adicionar ao ChromaDB
