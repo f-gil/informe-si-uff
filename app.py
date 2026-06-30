@@ -137,7 +137,7 @@ st.markdown("""
 
 # Titulo e subtitulo
 st.markdown("<h1>🎓 InformeSI</h1>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>Tire suas duvidas sobre o curso de Sistemas de Informacao da UFF</p>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'>Tire suas dúvidas sobre o curso de Sistemas de Informação da UFF</p>", unsafe_allow_html=True)
 
 # Inicializar session state
 if "chatbot" not in st.session_state:
